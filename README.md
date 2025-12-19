@@ -9,4 +9,4 @@ Prereqs:
 - Run `python robots.py`
 
 Gemini/AI helped with the `robots.py` demo, but more like a peer-programming session, where I edited/fixed/reviewed everything it wrote. 
-Generally, following [Fedora's proposed AI guidelines](https://communityblog.fedoraproject.org/council-policy-proposal-policy-on-ai-assisted-contributions/) for responsible use.
+Generally, following [Fedora's (now approved) AI guidelines](https://communityblog.fedoraproject.org/council-policy-proposal-policy-on-ai-assisted-contributions/) for responsible use.
