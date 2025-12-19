@@ -2,7 +2,7 @@ Forked the `read_write.py` from [Waveshare's SDK Python demo](https://files.wave
 
 Prereqs:
 - Download/extract the Python SDK from above
-- Place the robots.py alongside other python examples
+- Place the robots.py (along with the 2 .json calibration files) alongside other python examples
 - Tested with Python 3.13.11, use pyenv/venv if necessary
 - Install pip requirements of the SDK: `pip pip install -r requirements.txt`
 - Modify robots.py (at the `devices` dict) to specify `DEVICENAME` of both robots. For me, this was /dev/ttyACM0 and /dev/ttyACM1
