@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 #
-# *********     Async Move Example      *********
+# *********     非同期移動の例      *********
 #
 #
-# Available SC Servo model on this example : All models using Protocol SC
-# This example is tested with a SC Servo(SC15/SC09), and an URT
-# This example demonstrates controlling two servos concurrently using asyncio.
+# この例で利用可能なSCサーボモデル : プロトコルSCを使用するすべてのモデル
+# この例はSCサーボ(SC15/SC09)とURTでテストされています
+# この例はasyncioを使用して2つのサーボを同時に制御する方法を示します。
 #
 
 import sys
@@ -30,10 +30,16 @@ else:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
 
-sys.path.append("stservo-env")
-from scservo_sdk import *                      # Uses SC Servo SDK library
 
-# Load arm configurations from JSON files
+# scservo_sdkのパスをimport直前で追加
+import sys
+import os
+sdk_path = os.path.join(os.path.dirname(__file__), "stservo-env", "STServo_Python", "stservo-env")
+if sdk_path not in sys.path:
+    sys.path.append(sdk_path)
+from scservo_sdk import *  # SCサーボSDKライブラリを使用
+
+# JSONファイルからアーム設定を読み込み
 try:
     with open('follower_arm.json', 'r') as f:
         follower_arm_config = json.load(f)
@@ -44,7 +50,7 @@ except FileNotFoundError as e:
     sys.exit(1)
 
 
-# Device settings
+# デバイス設定
 devices = {
     'follower': {
         'BAUDRATE': 1000000,
@@ -62,8 +68,8 @@ devices = {
 
 async def move_and_wait(packet_handler, device_settings, scs_id, position):
     """
-    Moves a servo to a specific position and waits for the move to complete.
-    Handles task cancellation gracefully.
+    サーボを特定の位置に移動し、移動が完了するまで待機します。
+    タスクのキャンセルを適切に処理します。
     """
     try:
         speed = device_settings['SCS_MOVING_SPEED']
@@ -108,9 +114,12 @@ async def move_and_wait(packet_handler, device_settings, scs_id, position):
         print(f"Movement of servo [ID:{scs_id:03d}] was cancelled (timeout).")
 
 async def main():
+    # 追従させるサーボIDリスト
+    # 全サーボIDで追従
     """
-    Main function to initialize servos and run the movement demo.
+    サーボを初期化し、移動デモを実行するメイン関数。
     """
+    loop = asyncio.get_event_loop()
     portHandlers = {}
     packetHandlers = {}
     
@@ -133,94 +142,67 @@ async def main():
         print("No devices were initialized. Terminating.")
         return
 
-    # Create a lookup table for servos by ID
+    # サーボIDによるルックアップテーブルを作成
     follower_servos_by_id = {servo['id']: servo for servo in devices['follower']['arm_config'].values()}
     leader_servos_by_id = {servo['id']: servo for servo in devices['leader']['arm_config'].values()}
 
-    # Enable torque for all servos
-    print("Enabling torque for all servos...")
-    all_servos = []
-    if 'follower' in packetHandlers:
-        all_servos.append((packetHandlers['follower'], follower_servos_by_id.keys()))
+    # すべてのサーボのトルクを有効化
+
+    print("Enabling torque for leader servos and disabling for follower servos...")
+    # リーダーのみトルクON
     if 'leader' in packetHandlers:
-        all_servos.append((packetHandlers['leader'], leader_servos_by_id.keys()))
-
-    for handler, ids in all_servos:
-        for scs_id in ids:
-            result, error = handler.write1ByteTxRx(scs_id, SCSCL_TORQUE_ENABLE, 1)
+        for scs_id in leader_servos_by_id.keys():
+            result, error = packetHandlers['leader'].write1ByteTxRx(scs_id, SCSCL_TORQUE_ENABLE, 1)
             if result != COMM_SUCCESS:
-                print(f"Failed to enable torque for servo {scs_id}: {handler.getTxRxResult(result)}")
+                print(f"Failed to enable torque for leader servo {scs_id}: {packetHandlers['leader'].getTxRxResult(result)}")
             elif error != 0:
-                print(f"Error enabling torque for servo {scs_id}: {handler.getRxPacketError(error)}")
+                print(f"Error enabling torque for leader servo {scs_id}: {packetHandlers['leader'].getRxPacketError(error)}")
             else:
-                print(f"Successfully enabled torque for servo {scs_id}")
+                print(f"Successfully enabled torque for leader servo {scs_id}")
 
-    # State for the demo loop
+    # フォロワーはトルクOFF（フリー）
+    if 'follower' in packetHandlers:
+        for scs_id in follower_servos_by_id.keys():
+            result, error = packetHandlers['follower'].write1ByteTxRx(scs_id, SCSCL_TORQUE_ENABLE, 0)
+            if result != COMM_SUCCESS:
+                print(f"Failed to disable torque for follower servo {scs_id}: {packetHandlers['follower'].getTxRxResult(result)}")
+            elif error != 0:
+                print(f"Error disabling torque for follower servo {scs_id}: {packetHandlers['follower'].getRxPacketError(error)}")
+            else:
+                print(f"Successfully disabled torque for follower servo {scs_id}")
+
+    # デモループの状態
     position_index = 0
     servo_cycle_index = 0
     
     follower_settings = devices['follower']
     leader_settings = devices.get('leader')
 
-    # Define which servos to move
-    MOVING_SERVO_IDS = [1, 4, 5, 6]
-    movement_delta = 100  # How far to move from the midpoint
-
-    loop = asyncio.get_event_loop()
-    
+    import time
     while True:
-        print("Press any key to continue! (or press ESC to quit!)")
-        char = await loop.run_in_executor(None, getch)
-        if char == chr(0x1b):
-            break
+        for current_scs_id in follower_servos_by_id.keys():
+            follower_position = None
+            if 'follower' in packetHandlers:
+                def read_follower_pos():
+                    pos, _, comm_result, err = packetHandlers['follower'].ReadPosSpeed(current_scs_id)
+                    if comm_result == COMM_SUCCESS and err == 0:
+                        return pos
+                    else:
+                        print(f"Failed to read follower servo {current_scs_id} position.")
+                        return None
+                follower_position = await loop.run_in_executor(None, read_follower_pos)
 
-        # Determine which servo to move in this cycle
-        current_scs_id = MOVING_SERVO_IDS[servo_cycle_index]
-        print(f"--- Activating Servo ID: {current_scs_id} ---")
+            if follower_position is not None and 'leader' in packetHandlers and current_scs_id in leader_servos_by_id:
+                await move_and_wait(packetHandlers['leader'], leader_settings, current_scs_id, follower_position)
+        await asyncio.sleep(0.05)
 
-        tasks = []
-
-        # Prepare follower task
-        if 'follower' in packetHandlers:
-            servo_config = follower_servos_by_id.get(current_scs_id)
-            if servo_config:
-                mid_point = (servo_config['range_min'] + servo_config['range_max']) // 2
-                pos1 = max(servo_config['range_min'], mid_point - movement_delta)
-                pos2 = min(servo_config['range_max'], mid_point + movement_delta)
-                goal_position = [pos1, pos2][position_index]
-                tasks.append(asyncio.create_task(move_and_wait(packetHandlers['follower'], follower_settings, current_scs_id, goal_position)))
-
-        # Prepare leader task
-        if 'leader' in packetHandlers:
-            servo_config = leader_servos_by_id.get(current_scs_id)
-            if servo_config:
-                mid_point = (servo_config['range_min'] + servo_config['range_max']) // 2
-                pos1 = max(servo_config['range_min'], mid_point - movement_delta)
-                pos2 = min(servo_config['range_max'], mid_point + movement_delta)
-                # Move opposite to follower
-                goal_position = [pos1, pos2][position_index]
-                tasks.append(asyncio.create_task(move_and_wait(packetHandlers['leader'], leader_settings, current_scs_id, goal_position)))
-
-        if tasks:
-            done, pending = await asyncio.wait(tasks, timeout=5.0)
-
-            if pending:
-                print(f"Warning: {len(pending)} movement tasks timed out and were cancelled.")
-                for task in pending:
-                    task.cancel()
-
-        # Update state for the next iteration
-        position_index = 1 - position_index
-        if position_index == 0: # A full back-and-forth cycle is complete
-            servo_cycle_index = (servo_cycle_index + 1) % len(MOVING_SERVO_IDS)
-
-    # Disable torque at the end
+    # 最後にトルクを無効化
     print("Disabling torque for all servos...")
     for handler, ids in all_servos:
         for scs_id in ids:
             handler.write1ByteTxRx(scs_id, SCSCL_TORQUE_ENABLE, 0)
 
-    # Close ports
+    # ポートを閉じる
     for portHandler in portHandlers.values():
         portHandler.closePort()
 

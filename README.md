@@ -1,12 +1,10 @@
-Forked the `read_write.py` from [Waveshare's SDK Python demo](https://files.waveshare.com/wiki/Bus-Servo-Adapter-(A)/STServo_Python.zip)
 
-Prereqs:
-- Download/extract the Python SDK from above
-- Place the robots.py (along with the 2 .json calibration files) alongside other python examples
-- Tested with Python 3.13.11, use pyenv/venv if necessary
-- Install pip requirements of the SDK: `pip pip install -r requirements.txt`
-- Modify robots.py (at the `devices` dict) to specify `DEVICENAME` of both robots. For me, this was /dev/ttyACM0 and /dev/ttyACM1
-- Run `python robots.py`
+WaveshareのSDK Pythonデモ（[Waveshare's SDK Python demo](https://files.waveshare.com/wiki/Bus-Servo-Adapter-(A)/STServo_Python.zip)）から`read_write.py`をフォークしました。
 
-Assisted-by: Gemini 3.5 -- helped with the `robots.py` demo, but more like a peer-programming session, where I edited/fixed/reviewed everything it wrote. 
-Generally, following [Fedora's (now approved) AI guidelines](https://docs.fedoraproject.org/en-US/council/policy/ai-contribution-policy/) for responsible use.
+前提条件:
+- 上記リンクからPython SDKをダウンロード・解凍してください
+- robots.py（および2つの.jsonキャリブレーションファイル）を他のPythonサンプルと同じ場所に配置してください
+- Python 3.13.11でテスト済み。必要に応じてpyenvやvenvを使用してください
+- SDKのpip要件をインストール: `pip install -r requirements.txt`
+- robots.py内の`devices`ディクショナリで、両方のロボットの`DEVICENAME`を指定してください。私の場合は /dev/ttyACM0 と /dev/ttyACM1 でした
+- `python robots.py` を実行してください。
