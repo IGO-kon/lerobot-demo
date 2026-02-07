@@ -194,7 +194,7 @@ async def main():
 
             if follower_position is not None and 'leader' in packetHandlers and current_scs_id in leader_servos_by_id:
                 await move_and_wait(packetHandlers['leader'], leader_settings, current_scs_id, follower_position)
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.01)
 
     # 最後にトルクを無効化
     print("Disabling torque for all servos...")
