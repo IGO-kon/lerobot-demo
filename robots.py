@@ -54,13 +54,13 @@ except FileNotFoundError as e:
 devices = {
     'follower': {
         'BAUDRATE': 1000000,
-        'DEVICENAME': '/dev/ttyACM0',
+        'DEVICENAME': '/dev/ttyACM1',
         'SCS_MOVING_SPEED': 1000,
         'arm_config': follower_arm_config
     },
     'leader': {
         'BAUDRATE': 1000000,
-        'DEVICENAME': '/dev/ttyACM1',
+        'DEVICENAME': '/dev/ttyACM0',
         'SCS_MOVING_SPEED': 1000,
         'arm_config': leader_arm_config
     }
@@ -188,15 +188,12 @@ async def main():
                     if comm_result == COMM_SUCCESS and err == 0:
                         return pos
                     else:
+                        print(f"Failed to read follower servo {current_scs_id} position.")
                         return None
                 follower_position = await loop.run_in_executor(None, read_follower_pos)
 
             if follower_position is not None and 'leader' in packetHandlers and current_scs_id in leader_servos_by_id:
-                # 追従サーボに即座にWritePosのみ送信（待機なし）
-                def write_leader_pos():
-                    speed = leader_settings['SCS_MOVING_SPEED']
-                    return packetHandlers['leader'].WritePos(current_scs_id, follower_position, 0, speed)
-                await loop.run_in_executor(None, write_leader_pos)
+                await move_and_wait(packetHandlers['leader'], leader_settings, current_scs_id, follower_position)
         await asyncio.sleep(0.01)
 
     # 最後にトルクを無効化
